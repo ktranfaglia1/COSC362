@@ -1,77 +1,94 @@
+/* I pledge my Honor that I have not cheated, and will not cheat, on this assignment. 
+ * Author: Kyle Tranfaglia
+ * Tile: COSC362 - Project01
+ * Last Updated: 03/03/25
+ * Description: This lexical analyzer program is designed to tokenize source code written in the TINY language. It scans the input
+ * file, identifies keywords, identifiers, numbers, operators, and symbols, and generates tokens for further processing by a parser.
+*/
+%option yylineno
+%option noyywrap
+
 %{
-#include <stdio.h>
-#include "tiny.tab.h"
-#define DEBUG 1
+  #define DEBUG 1
+  typedef int Token;
+  Token scanned(Token t);
 %}
 
-/* Instruct flex not to require a yywrap function */
-%option noyywrap
-%option yylineno
+/* Regular expressions */
+digit   [0-9]
+letter  [a-zA-Z]
+id      {letter}({letter}|{digit}|_)*
+num     {digit}+
+wspace  [ \t\r]+
+newline [\n]
 
-/* Define a start condition for comment handling */
-%x COMMENT
-
-/* Definitions for character classes */
-DIGIT    [0-9]
-LETTER   [a-zA-Z]
+/* Match keywords, identifiers, numbers, operators, and punctuation */
 
 %%
-/* Ignore whitespace except newlines */
-[ \t\r]+                ;
 
-/* Print a newline if one is encountered. */
-\n                      { yylineno++; printf("\n"); }
+"if"        {return scanned(IF);}
+"then"      {return scanned(THEN);}
+"else"      {return scanned(ELSE);}
+"end"       {return scanned(END);}
+"repeat"    {return scanned(REPEAT);}
+"until"     {return scanned(UNTIL);}
+"read"      {return scanned(READ);}
+"write"     {return scanned(WRITE);}
 
-/* Begin a comment: switch to the COMMENT state */
-"{"                   { BEGIN(COMMENT); }
+{num}       {return scanned(NUM);}
+{id}        {return scanned(ID);}
 
-/* COMMENT state rules */
-<COMMENT>[^}\n]+      { /* Consume comment characters (except newline and } ) */ }
-<COMMENT>\n          { yylineno++; }
-<COMMENT>"}"         { BEGIN(INITIAL); }
-<COMMENT><<EOF>>     { fprintf(stderr, "Error: Unterminated comment at line %d\n", yylineno); exit(1); }
+":="       {return scanned(ASSIGN);}
+"="        {return scanned(EQ);}
+"<"        {return scanned(LT);}
+"+"        {return scanned(PLUS);}
+"-"        {return scanned(MINUS);}
+"*"        {return scanned(TIMES);}
+"/"        {return scanned(OVER);}
+"("        {return scanned(LPAREN);}
+")"        {return scanned(RPAREN);}
+";"        {return scanned(SEMI);}
 
-/* Reserved words */
-"if"                    { printf("IF "); return IF; }
-"then"                  { printf("THEN "); return THEN; }
-"else"                  { printf("ELSE "); return ELSE; }
-"end"                   { printf("END "); return END; }
-"repeat"                { printf("REPEAT "); return REPEAT; }
-"until"                 { printf("UNTIL "); return UNTIL; }
-"read"                  { printf("READ "); return READ; }
-"write"                 { printf("WRITE "); return WRITE; }
+"{"[^}]*"}"   { /* Skip comments */ }
 
-/* Operators and punctuation */
-":="                    { printf("ASSIGN "); return ASSIGN; }
-"<"                     { printf("LT "); return LT; }
-"="                     { printf("EQ "); return EQ; }
-"+"                     { printf("PLUS "); return PLUS; }
-"-"                     { printf("MINUS "); return MINUS; }
-"*"                     { printf("TIMES "); return TIMES; }
-"/"                     { printf("OVER "); return OVER; }
-";"                     { printf("SEMI "); return SEMI; }
+{wspace}    { /* skip whitespace */ }
+{newline}   { printf("\n"); }
+<<EOF>>     {return scanned(ENDFILE);}
+.           {
+              printf("Lexical error on line %d: Illegal character %s\n", yylineno, yytext);
+              return scanned(ERROR);
+            }
 
-/* Number literals */
-{DIGIT}+               { printf("NUM(%s) ", yytext); return NUM; }
-
-/* Identifier: starts with a letter followed by letters or digits */
-{LETTER}({LETTER}|{DIGIT})*  { printf("ID(%s) ", yytext); return ID; }
-
-/* Catch-all for any unexpected character */
-.                       { printf("Unknown character: %s\n", yytext); }
 %%
 
-/* Main program: opens the file and calls yylex() */
-int main(int argc, char **argv) {
-    if (argc > 1) {
-        FILE *file = fopen(argv[1], "r");
-        if (!file) {
-            perror(argv[1]);
-            return 1;
-        }
-        yyin = file;
+/* process and return scanned tokens */
+Token scanned(Token t) {
+  if(DEBUG) {
+    switch(t) {
+      case IF: printf("IF "); break;
+      case THEN: printf("THEN "); break;
+      case ELSE: printf("ELSE "); break;
+      case END: printf("END "); break;
+      case REPEAT: printf("REPEAT "); break;
+      case UNTIL: printf("UNTIL "); break;
+      case READ: printf("READ "); break;
+      case WRITE: printf("WRITE "); break;
+      case ID: printf("ID(%s) ", yytext); break;
+      case NUM: printf("NUM(%s) ", yytext); break;
+      case ASSIGN: printf("ASSIGN "); break;
+      case EQ: printf("EQ "); break;
+      case LT: printf("LT "); break;
+      case PLUS: printf("PLUS "); break;
+      case MINUS: printf("MINUS "); break;
+      case TIMES: printf("TIMES "); break;
+      case OVER: printf("OVER "); break;
+      case LPAREN: printf("LPAREN "); break;
+      case RPAREN: printf("RPAREN "); break;
+      case SEMI: printf("SEMI "); break;
+      case ENDFILE: printf("ENDFILE\n"); break;
+      case ERROR: printf("ERROR "); break;
+      default: printf("ERROR: invalid token in scanned().\n"); exit(-1);
     }
-    yylex();
-    printf("ENDOFFILE");
-    return 0;
+  }
+  return t;
 }
